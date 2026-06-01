@@ -54,7 +54,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "5435:5432"  # separate from airflow-postgres to avoid conflict
     volumes:
       - ./docker/postgres/data:/var/lib/postgresql/data
     command: >
@@ -128,7 +128,7 @@ services:
     volumes:
       - airflow_postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"  # separate from banking-postgres to avoid conflict
+      - "5436:5432"  # separate from banking-postgres to avoid conflict
 
 volumes:
   airflow_postgres_data:
