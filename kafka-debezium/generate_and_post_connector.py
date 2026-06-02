@@ -39,7 +39,7 @@ connector_config = {
 url = "http://localhost:8083/connectors"
 headers = {"Content-Type": "application/json"}
 
-print("Enviando configuração para o Kafka Connect...")
+print("Sending connector configuration to Kafka Connect...")
 response = requests.post(url, headers=headers, data=json.dumps(connector_config))
 
 # -----------------------------
@@ -50,21 +50,19 @@ if response.status_code == 201:
     
 elif response.status_code == 409:
     print("⚠️ Connector already exists. deleting and re-creating...")
-    
-    # 1. Apaga o conector existente
+
     delete_url = f"{url}/{connector_name}"
     requests.delete(delete_url)
     
 
     time.sleep(2)
     
-    # 3. Tenta criar de novo
     retry_response = requests.post(url, headers=headers, data=json.dumps(connector_config))
     
     if retry_response.status_code == 201:
-        print("✅ Connector recriado com sucesso!")
+        print("✅ connector recreated successfully!")
     else:
-        print(f"❌ Falha ao recriar o conector ({retry_response.status_code}): {retry_response.text}")
+        print(f"❌ Failed to recreate connector ({retry_response.status_code}): {retry_response.text}")
         
 else:
     print(f"❌ Failed to create connector ({response.status_code}): {response.text}")
