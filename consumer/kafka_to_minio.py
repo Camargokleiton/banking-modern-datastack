@@ -1,5 +1,5 @@
 import boto3
-from kafka import KafkaConsumer
+from confluent_kafka import Consumer, KafkaError
 import json
 import pandas as pd
 from datetime import datetime
@@ -32,19 +32,21 @@ if missing:
     sys.exit(1)
 
 # -----------------------------
-# Kafka consumer settings (wrapped)
+# Kafka consumer settings (Confluent Kafka)
 # -----------------------------
 try:
-    consumer = KafkaConsumer(
+    conf = {
+        'bootstrap.servers': os.getenv('KAFKA_BOOTSTRAP'),
+        'group.id': os.getenv('KAFKA_GROUP'),
+        'auto.offset.reset': 'earliest',
+        'enable.auto.commit': True
+    }
+    consumer = Consumer(conf)
+    consumer.subscribe([
         'banking_server.public.customers',
         'banking_server.public.accounts',
-        'banking_server.public.transactions',
-        bootstrap_servers=os.getenv('KAFKA_BOOTSTRAP'),
-        auto_offset_reset='earliest',
-        enable_auto_commit=True,
-        group_id=os.getenv('KAFKA_GROUP'),
-        value_deserializer=lambda x: json.loads(x.decode('utf-8'))
-    )
+        'banking_server.public.transactions'
+    ])
     logger.info('✅ Kafka consumer created, subscribing to topics')
 except Exception:
     logger.error('Failed to create KafkaConsumer:\n%s', traceback.format_exc())
@@ -71,11 +73,10 @@ except Exception:
     logger.error('Failed to connect to MinIO or ensure bucket:\n%s', traceback.format_exc())
     raise
 
-
 # -----------------------------
 # Consume and write function with robust error handling
 # -----------------------------
-batch_size = 50
+batch_size = 10 
 buffer = {
     'banking_server.public.customers': [],
     'banking_server.public.accounts': [],
@@ -125,16 +126,42 @@ def write_to_minio(table_name, records):
 logger.info('Consumer ready — listening for messages...')
 
 try:
-    for message in consumer:
+    while True:
+        message = consumer.poll(1.0)
+
+        if message is None:
+            continue
+        if message.error():
+            if message.error().code() == KafkaError._PARTITION_EOF:
+                continue
+            else:
+                logger.error(f"Erro no Kafka: {message.error()}")
+                continue
+
         try:
-            topic = message.topic
-            event = message.value
-            payload = event.get('payload', {}) if isinstance(event, dict) else {}
-            record = payload.get('after') if isinstance(payload, dict) else None
+            topic = message.topic()
+            raw_value = message.value()
+            
+            if not raw_value:
+                continue
+
+            event = json.loads(raw_value.decode('utf-8'))
+            
+            # --- AQUI ESTÁ A MÁGICA NOVA ---
+            # Ele vai tentar achar o 'after' de duas formas diferentes, para não perder NENHUMA mensagem
+            if 'payload' in event:
+                record = event['payload'].get('after') if isinstance(event['payload'], dict) else None
+            else:
+                record = event.get('after') if isinstance(event, dict) else None
 
             if record:
                 buffer[topic].append(record)
-                logger.debug('[%s] buffered record, buffer_size=%d', topic, len(buffer[topic]))
+                # Adicionamos um print para você VER o buffer enchendo
+                print(f"✅ {topic}: Registro no buffer ({len(buffer[topic])}/{batch_size})")
+            else:
+                # Se mesmo assim não achar, ele imprime na tela para descobrirmos o motivo
+                print(f"⚠️ Ignorado: {str(event)[:150]}...")
+            # -------------------------------
 
             if len(buffer.get(topic, [])) >= batch_size:
                 write_to_minio(topic.split('.')[-1], buffer[topic])
@@ -147,7 +174,6 @@ except KeyboardInterrupt:
 except Exception:
     logger.exception('Fatal error in consumer loop')
 finally:
-    # flush any remaining records
     for topic, records in list(buffer.items()):
         if records:
             try:
@@ -156,6 +182,6 @@ finally:
                 logger.exception('Failed to flush buffer for %s', topic)
     try:
         consumer.close()
-    except Exception:
+    except Exception:    
         pass
     logger.info('Consumer stopped')

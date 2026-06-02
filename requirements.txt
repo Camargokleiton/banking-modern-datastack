@@ -1,0 +1,9 @@
+boto3
+confluent-kafka
+pandas
+python-dotenv
+fastparquet
+pyarrow
+requests
+psycopg2-binary
+Faker
