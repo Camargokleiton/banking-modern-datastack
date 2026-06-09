@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 TABLES = ["customers", "accounts", "transactions"]
-STAGE_NAME = "banking_raw_stage"  # Explicit Centralized Named Stage
+STAGE_NAME = os.getenv("SNOWFLAKE_STAGE")  
 
 # -------- Helper Connection Functions --------
 def get_minio_client():
@@ -43,7 +43,7 @@ default_args = {
     dag_id="minio_to_snowflake_banking",
     default_args=default_args,
     description="Load MinIO parquet into Snowflake RAW tables iteratively using a Named Stage",
-    schedule_interval="*/1 * * * *",
+    schedule_interval="*/5 * * * *",
     start_date=datetime(2025, 1, 1),
     catchup=False,
     tags=["banking", "ingestion"]
@@ -81,12 +81,15 @@ def banking_ingestion_dag():
             db_name = os.getenv("SNOWFLAKE_DB") or os.getenv("SNOWFLAKE_DATABASE")
             cur.execute(f"USE DATABASE {db_name}")
             cur.execute(f"USE SCHEMA {os.getenv('SNOWFLAKE_SCHEMA')}")
-
-            # Create the explicit Named Stage and ensure the table exists with a VARIANT column
-            cur.execute(f"CREATE STAGE IF NOT EXISTS {STAGE_NAME}")
-            cur.execute(f"CREATE TABLE IF NOT EXISTS {table_name} (raw_data VARIANT)")
+            cur.execute(f"CREATE STAGE IF NOT EXISTS {STAGE_NAME.lower()}")
+            cur.execute(f"CREATE TABLE IF NOT EXISTS {table_name.lower()} (raw_data VARIANT)")
             
-
+            resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
+            objects = resp.get("Contents", [])
+        
+            if not objects:
+                 print(f"📭 No new files found for table {table_name}.")
+                 return
 
             for obj in objects:
                 minio_key = obj["Key"]
@@ -105,7 +108,7 @@ def banking_ingestion_dag():
                     safe_path = local_file.replace('\\', '/')
 
                     # 3. Upload to Snowflake (Explicit Named Stage inside a specific table folder)
-                    stage_path = f"@{STAGE_NAME}/{table_name}"
+                    stage_path = f"@{STAGE_NAME.lower()}/{table_name.lower()}"
                     cur.execute(f"PUT file://{safe_path} {stage_path} AUTO_COMPRESS=FALSE OVERWRITE=TRUE")
                     
                     # 4. Copy into the table (Using $1 reading for VARIANT)
