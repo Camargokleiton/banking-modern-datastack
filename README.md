@@ -35,6 +35,17 @@ We simulate **customer, account, and transaction data**, stream changes in real 
 
 ---
 
+## ⚙️ Setup & Dependencies
+- Install Python dependencies:
+  ```bash
+  pip install -r requirements.txt
+  ```
+- The project uses `dbt-core` + `dbt-snowflake` for transformations and snapshots.
+- Airflow DAGs are defined in `docker/dags/` and mounted into the Airflow container via `docker-compose.yml`.
+- Use `docker-compose up` to start the stack after environment variables are configured.
+
+---
+
 ## ⚡ Tech Stack
 - **Snowflake** → Cloud Data Warehouse  
 - **DBT** → Transformations, testing, snapshots (SCD Type-2)  
