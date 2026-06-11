@@ -32,9 +32,9 @@ clean-targets:         # directories to be removed by `dbt clean`
 models:
   banking:
     # Config indicated by + and applies to all files under models/example/
-    table:  # the materialization for all models in this directory will be "table"
+    marts:  # the materialization for all models in this directory will be "table"
       +materialized: table
-    view:  # the materialization for all models in this directory will be "view"
+    staging:  # the materialization for all models in this directory will be "view"
       +materialized: view
         
 
