@@ -43,7 +43,7 @@ default_args = {
     dag_id="minio_to_snowflake_banking",
     default_args=default_args,
     description="Load MinIO parquet into Snowflake RAW tables iteratively using a Named Stage",
-    schedule_interval="*/5 * * * *",
+    schedule="*/1 * * * *",
     start_date=datetime(2025, 1, 1),
     catchup=False,
     tags=["banking", "ingestion"]
@@ -82,7 +82,7 @@ def banking_ingestion_dag():
             cur.execute(f"USE DATABASE {db_name}")
             cur.execute(f"USE SCHEMA {os.getenv('SNOWFLAKE_SCHEMA')}")
             cur.execute(f"CREATE STAGE IF NOT EXISTS {STAGE_NAME.lower()}")
-            cur.execute(f"CREATE TABLE IF NOT EXISTS {table_name.lower()} (raw_data VARIANT)")
+            cur.execute(f"CREATE TABLE IF NOT EXISTS {table_name.lower()} (v VARIANT)")
             
             resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
             objects = resp.get("Contents", [])
@@ -113,7 +113,7 @@ def banking_ingestion_dag():
                     
                     # 4. Copy into the table (Using $1 reading for VARIANT)
                     copy_sql = f"""
-                    COPY INTO {table_name}(raw_data)
+                    COPY INTO {table_name}(v)
                     FROM (SELECT $1 FROM {stage_path})
                     FILE_FORMAT=(TYPE=PARQUET)
                     ON_ERROR='SKIP_FILE'

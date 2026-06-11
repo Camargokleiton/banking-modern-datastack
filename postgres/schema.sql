@@ -1,6 +1,6 @@
 --DROP TABLE customer CASCADE;
 --DROP TABLE accounts CASCADE;
-DROP TABLE transactions CASCADE;
+--DROP TABLE transactions CASCADE;
 
 CREATE TABLE customers(
     customer_id SERIAL PRIMARY KEY,
@@ -29,3 +29,6 @@ CREATE TABLE transactions (
 	status VARCHAR(50) NOT NULL DEFAULT 'COMPLETED',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+select * from accounts;
+

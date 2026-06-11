@@ -135,7 +135,7 @@ try:
             if message.error().code() == KafkaError._PARTITION_EOF:
                 continue
             else:
-                logger.error(f"Erro no Kafka: {message.error()}")
+                logger.error(f"Error in Kafka: {message.error()}")
                 continue
 
         try:
@@ -157,10 +157,10 @@ try:
             if record:
                 buffer[topic].append(record)
                 # Adicionamos um print para você VER o buffer enchendo
-                print(f"✅ {topic}: Registro no buffer ({len(buffer[topic])}/{batch_size})")
+                print(f"✅ {topic}: record to buffer ({len(buffer[topic])}/{batch_size})")
             else:
                 # Se mesmo assim não achar, ele imprime na tela para descobrirmos o motivo
-                print(f"⚠️ Ignorado: {str(event)[:150]}...")
+                print(f"⚠️ Ignored: {str(event)[:150]}...")
             # -------------------------------
 
             if len(buffer.get(topic, [])) >= batch_size:

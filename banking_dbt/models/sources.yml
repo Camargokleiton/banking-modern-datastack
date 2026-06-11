@@ -1,0 +1,12 @@
+sources:
+  - name: raw_data
+    database: BANKING_DB
+    schema: raw
+    tables:
+      - name: transactions
+        identifier: transactions
+      - name: accounts
+        identifier: accounts
+      - name: customers
+        identifier: customers
+        
