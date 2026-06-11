@@ -32,6 +32,31 @@ def get_snowflake_conn():
         role=os.getenv("SNOWFLAKE_ROLE") 
     )
 
+TABLE_UNIQUE_KEYS = {
+    "customers": "customer_id",
+    "accounts": "account_id",
+    "transactions": "transactions_id",
+}
+
+
+def get_merge_sql(table_name: str, source_name: str) -> str | None:
+    unique_key = TABLE_UNIQUE_KEYS.get(table_name)
+    if not unique_key:
+        return None
+
+    return f"""
+    MERGE INTO {table_name} AS target
+    USING (
+        SELECT
+            source.v:{unique_key}::STRING AS key_value,
+            source.v AS row_variant
+        FROM {source_name} AS source
+    ) AS source
+    ON target.v:{unique_key}::STRING = source.key_value
+    WHEN MATCHED THEN UPDATE SET v = source.row_variant
+    WHEN NOT MATCHED THEN INSERT (v) VALUES (source.row_variant)
+    """
+
 # -------- DAG Definition --------
 default_args = {
     "owner": "airflow",
@@ -111,15 +136,27 @@ def banking_ingestion_dag():
                     stage_path = f"@{STAGE_NAME.lower()}/{table_name.lower()}"
                     cur.execute(f"PUT file://{safe_path} {stage_path} AUTO_COMPRESS=FALSE OVERWRITE=TRUE")
                     
-                    # 4. Copy into the table (Using $1 reading for VARIANT)
+                    temp_table = f"{table_name.lower()}__tmp"
+                    cur.execute(f"CREATE OR REPLACE TEMPORARY TABLE {temp_table} (v VARIANT)")
+
+                    # 4. Copy into the temporary table (Using $1 reading for VARIANT)
                     copy_sql = f"""
-                    COPY INTO {table_name}(v)
+                    COPY INTO {temp_table}(v)
                     FROM (SELECT $1 FROM {stage_path})
                     FILE_FORMAT=(TYPE=PARQUET)
                     ON_ERROR='SKIP_FILE'
                     """
                     cur.execute(copy_sql)
-                    print(f"✅ File loaded into Snowflake: {minio_key}")
+                    print(f"✅ File loaded into temporary Snowflake table: {minio_key}")
+
+                    merge_sql = get_merge_sql(table_name, temp_table)
+                    if merge_sql:
+                        try:
+                            cur.execute(merge_sql)
+                            print(f"🔄 Upsert completed for {table_name} from {minio_key}")
+                        except Exception as merge_error:
+                            print(f"⚠️ Merge failed for {table_name}: {merge_error}")
+                            raise
 
                     # Clean the stage to avoid accumulating junk in Snowflake
                     cur.execute(f"REMOVE {stage_path} pattern='.*{os.path.basename(minio_key)}.*'")

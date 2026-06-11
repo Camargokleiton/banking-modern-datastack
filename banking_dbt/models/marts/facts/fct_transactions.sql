@@ -1,6 +1,5 @@
 {{ config(
-    materialized='incremental',
-    unique_key='transaction_id'
+    materialized='incremental'
 ) }}
 
 SELECT
@@ -16,3 +15,5 @@ SELECT
 FROM {{ ref('stg_transactions') }} t
 LEFT JOIN {{ ref('dim_accounts') }} a
 ON t.account_id = a.account_id
+
+
