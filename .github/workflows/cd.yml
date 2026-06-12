@@ -46,7 +46,7 @@ jobs:
                 account: "${{ secrets.SNOWFLAKE_ACCOUNT }}"
                 user: "${{ secrets.SNOWFLAKE_USER }}"
                 password: "${{ secrets.SNOWFLAKE_PASSWORD }}"
-                role: ACCOUNTADMIN
+                role: banking_role
                 database: banking_db
                 warehouse: "${{ secrets.SNOWFLAKE_WAREHOUSE }}"
                 schema: ANALYTICS
