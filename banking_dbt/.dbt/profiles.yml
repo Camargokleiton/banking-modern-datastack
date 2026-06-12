@@ -11,16 +11,3 @@ banking:
       user: Kleiton
       warehouse: banking_wh
   target: dev
-database_pipeline:
-  outputs:
-    dev:
-      account: ZBJIVFQ-YEB16987
-      database: dbt_db
-      password: Burroloko_2026
-      role: dbt_role
-      schema: dbt_shema
-      threads: 1
-      type: snowflake
-      user: KLEITON
-      warehouse: dbt_wh
-  target: dev
